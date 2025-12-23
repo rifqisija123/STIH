@@ -108,7 +108,7 @@
     <form action="{{ route('pemetaan.store') }}" method="POST">
         @csrf
         
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div class="grid grid-cols-1 gap-6 mb-6">
             
             <!-- Card 1: Data Siswa -->
             <div class="bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-200">
@@ -117,20 +117,20 @@
                     <p class="text-sm text-gray-500 mt-1">Informasi dasar siswa</p>
                 </div>
                 <div class="p-6 space-y-5">
-                    <!-- NISN -->
+                    <!-- NIM -->
                     <div>
-                        <label for="nisn" class="block text-sm font-semibold text-gray-700 mb-2">
-                            NISN <span class="text-red-500">*</span>
+                        <label for="nim" class="block text-sm font-semibold text-gray-700 mb-2">
+                            NIM <span class="text-red-500">*</span>
                         </label>
                         <input 
                             type="text" 
-                            id="nisn" 
-                            name="nisn" 
-                            class="form-input w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-primary @error('nisn') border-red-500 @enderror" 
-                            placeholder="Masukkan NISN"
-                            value="{{ old('nisn') }}"
+                            id="nim" 
+                            name="nim" 
+                            class="form-input w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-primary @error('nim') border-red-500 @enderror" 
+                            placeholder="Masukkan NIM"
+                            value="{{ old('nim') }}"
                             required>
-                        @error('nisn')
+                        @error('nim')
                             <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                         @enderror
                     </div>
@@ -306,6 +306,24 @@
                             <option value="non_beasiswa" {{ old('sumber_beasiswa') == 'non_beasiswa' ? 'selected' : '' }}>Non Beasiswa</option>
                         </select>
                         @error('sumber_beasiswa')
+                            <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <!-- Jenis Beasiswa -->
+                    <div id="jenis_beasiswa_container" style="display: {{ old('sumber_beasiswa') == 'beasiswa' ? 'block' : 'none' }};">
+                        <label for="jenis_beasiswa" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Jenis Beasiswa <span class="text-red-500">*</span>
+                        </label>
+                        <select 
+                            id="jenis_beasiswa" 
+                            name="jenis_beasiswa" 
+                            class="form-input w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-primary @error('jenis_beasiswa') border-red-500 @enderror">
+                            <option value="">-- Pilih Jenis Beasiswa --</option>
+                            <option value="50%" {{ old('jenis_beasiswa') == '50%' ? 'selected' : '' }}>Beasiswa 50%</option>
+                            <option value="100%" {{ old('jenis_beasiswa') == '100%' ? 'selected' : '' }}>Beasiswa 100%</option>
+                        </select>
+                        @error('jenis_beasiswa')
                             <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                         @enderror
                     </div>
@@ -570,6 +588,27 @@
                 $('body').css('overflow-x', '');
             });
         });
+
+        // Handle Jenis Beasiswa visibility based on Sumber Beasiswa selection
+        const sumberBeasiswaSelect = document.getElementById('sumber_beasiswa');
+        const jenisBeasiswaContainer = document.getElementById('jenis_beasiswa_container');
+        const jenisBeasiswaSelect = document.getElementById('jenis_beasiswa');
+
+        function toggleJenisBeasiswa() {
+            if (sumberBeasiswaSelect.value === 'beasiswa') {
+                jenisBeasiswaContainer.style.display = 'block';
+                jenisBeasiswaSelect.setAttribute('required', '');
+            } else {
+                jenisBeasiswaContainer.style.display = 'none';
+                jenisBeasiswaSelect.removeAttribute('required');
+                jenisBeasiswaSelect.value = ''; // Clear selection
+            }
+        }
+
+        sumberBeasiswaSelect.addEventListener('change', toggleJenisBeasiswa);
+        
+        // Initialize on page load
+        toggleJenisBeasiswa();
     </script>
 @endpush
 

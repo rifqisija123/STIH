@@ -128,8 +128,8 @@ class PemetaanController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'nisn' => 'required|string|max:10|unique:mahasiswas,nisn',
+        $rules = [
+            'nim' => 'required|string|max:10|unique:mahasiswas,nim',
             'nama_siswa' => 'required|string|max:255',
             'tahun_lulus' => 'required|integer|digits:4|min:2000|max:'.(date('Y') + 1),
             'asal_sekolah' => 'required|string',
@@ -138,7 +138,19 @@ class PemetaanController extends Controller
             'tanggal_daftar' => 'required|date',
             'tahu_stih_darimana' => 'required|string',
             'sumber_beasiswa' => 'required|in:beasiswa,non_beasiswa',
-        ]);
+        ];
+
+        // Jika sumber beasiswa adalah "beasiswa", maka jenis_beasiswa wajib diisi
+        if ($request->sumber_beasiswa === 'beasiswa') {
+            $rules['jenis_beasiswa'] = 'required|in:50%,100%';
+        }
+
+        $validated = $request->validate($rules);
+
+        // Jika sumber beasiswa bukan "beasiswa", set jenis_beasiswa ke null
+        if ($validated['sumber_beasiswa'] !== 'beasiswa') {
+            $validated['jenis_beasiswa'] = null;
+        }
 
         // Extract NPSN from "Name [NPSN]" format
         if (preg_match('/\[(\d+)\]$/', $validated['asal_sekolah'], $matches)) {
@@ -155,15 +167,58 @@ class PemetaanController extends Controller
      */
     public function tabel(Request $request)
     {
-        $query = Mahasiswa::with(['province', 'city', 'highSchool', 'madrasahAliyah', 'vocationalHighSchool', 'tahuStih'])
-            ->orderBy('created_at', 'desc');
+        // Handle suggestions request
+        if ($request->has('get_suggestions')) {
+            $suggestions = Mahasiswa::select('nama_siswa', 'nim')
+                ->distinct()
+                ->orderBy('nama_siswa')
+                ->get();
+            
+            return response()->json([
+                'suggestions' => $suggestions
+            ]);
+        }
 
-        // Filter by Search (Name or NISN)
+        $query = Mahasiswa::with(['province', 'city', 'highSchool', 'madrasahAliyah', 'vocationalHighSchool', 'tahuStih']);
+
+        // Sorting
+        $allowedSortColumns = [
+            'nim', 'nama_siswa', 'tahun_lulus', 'asal_sekolah', 
+            'tanggal_daftar', 'tahu_stih', 'status_beasiswa', 'jenis_beasiswa'
+        ];
+        
+        $sortColumn = $request->get('sort', 'created_at');
+        $sortDirection = $request->get('direction', 'desc');
+        
+        // Validate sort column and direction
+        if (!in_array($sortColumn, $allowedSortColumns)) {
+            $sortColumn = 'created_at';
+        }
+        
+        if (!in_array($sortDirection, ['asc', 'desc'])) {
+            $sortDirection = 'desc';
+        }
+
+        // Handle special sorting cases
+        if ($sortColumn === 'tahu_stih') {
+            // Join with tahu_stihs table for proper sorting
+            $query->leftJoin('tahu_stihs', 'mahasiswas.tahu_stih', '=', 'tahu_stihs.id')
+                  ->select('mahasiswas.*')
+                  ->orderBy('tahu_stihs.nama', $sortDirection);
+        } elseif ($sortColumn === 'status_beasiswa') {
+            // Sort by sumber_beasiswa column
+            $query->orderBy('sumber_beasiswa', $sortDirection);
+        } else {
+            // Default sorting
+            $query->orderBy($sortColumn, $sortDirection);
+        }
+
+        // Filter by Search (Name or NIM)
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('nama_siswa', 'like', "%{$search}%")
-                    ->orWhere('nisn', 'like', "%{$search}%");
+                    ->orWhere('nim', 'like', "%{$search}%");
             });
         }
 
@@ -203,7 +258,10 @@ class PemetaanController extends Controller
         // Get Provinces for filter
         $provinces = Province::orderBy('province')->get();
 
-        // Get Cities if province is selected
+        // Get all Cities for JavaScript dropdown
+        $allCities = City::orderBy('city')->get();
+
+        // Get Cities if province is selected for current filter display
         $cities = [];
         if ($request->filled('province_code')) {
             $cities = City::where('province_code', $request->province_code)
@@ -215,6 +273,7 @@ class PemetaanController extends Controller
             'mahasiswas' => $mahasiswas,
             'provinces' => $provinces,
             'cities' => $cities,
+            'allCities' => $allCities,
             'allSchools' => $allSchools,
         ]);
     }
@@ -290,8 +349,8 @@ class PemetaanController extends Controller
     {
         $mahasiswa = Mahasiswa::findOrFail($id);
 
-        $validated = $request->validate([
-            'nisn' => 'required|string|max:10|unique:mahasiswas,nisn,'.$id,
+        $rules = [
+            'nim' => 'required|string|max:10|unique:mahasiswas,nim,'.$id,
             'nama_siswa' => 'required|string|max:255',
             'tahun_lulus' => 'required|integer|digits:4|min:2000|max:'.(date('Y') + 1),
             'asal_sekolah' => 'required|string',
@@ -300,7 +359,19 @@ class PemetaanController extends Controller
             'tanggal_daftar' => 'required|date',
             'tahu_stih_darimana' => 'required|string',
             'sumber_beasiswa' => 'required|in:beasiswa,non_beasiswa',
-        ]);
+        ];
+
+        // Jika sumber beasiswa adalah "beasiswa", maka jenis_beasiswa wajib diisi
+        if ($request->sumber_beasiswa === 'beasiswa') {
+            $rules['jenis_beasiswa'] = 'required|in:50%,100%';
+        }
+
+        $validated = $request->validate($rules);
+
+        // Jika sumber beasiswa bukan "beasiswa", set jenis_beasiswa ke null
+        if ($validated['sumber_beasiswa'] !== 'beasiswa') {
+            $validated['jenis_beasiswa'] = null;
+        }
 
         // Extract NPSN from "Name [NPSN]" format
         if (preg_match('/\[(\d+)\]$/', $validated['asal_sekolah'], $matches)) {

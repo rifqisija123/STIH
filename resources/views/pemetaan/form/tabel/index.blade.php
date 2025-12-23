@@ -33,6 +33,51 @@
         tr:hover {
             background-color: #f9fafb;
         }
+
+        /* Suggestions dropdown styles */
+        .suggestions-dropdown {
+            scrollbar-width: thin;
+            scrollbar-color: #e5e7eb #f9fafb;
+        }
+        
+        .suggestions-dropdown::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .suggestions-dropdown::-webkit-scrollbar-track {
+            background: #f9fafb;
+            border-radius: 3px;
+        }
+        
+        .suggestions-dropdown::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 3px;
+        }
+        
+        .suggestions-dropdown::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+
+        .suggestion-item {
+            transition: all 0.15s ease-in-out;
+        }
+
+        .suggestion-item:hover {
+            background-color: #f3f4f6 !important;
+            transform: translateX(2px);
+        }
+
+        .suggestion-item.active {
+            background-color: #e5e7eb !important;
+        }
+
+        mark {
+            background-color: #fef3c7 !important;
+            color: #92400e;
+            padding: 1px 2px;
+            border-radius: 2px;
+        }
+
     </style>
 @endpush
 
@@ -76,6 +121,28 @@
         </div>
     @endif
 
+    @if (session('import_errors') && count(session('import_errors')) > 0)
+        <div class="mb-6 p-4 rounded-lg bg-yellow-50 border-l-4 border-yellow-500 shadow-sm">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-triangle text-yellow-500 mt-0.5"></i>
+                </div>
+                <div class="ml-3 w-full">
+                    <h3 class="text-sm font-medium text-yellow-800 mb-2">
+                        Ditemukan masalah pada beberapa baris data:
+                    </h3>
+                    <div class="text-sm text-yellow-700 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                        <ul class="list-disc pl-5 space-y-1">
+                            @foreach (session('import_errors') as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <!-- Filter Section -->
     <div class="bg-gradient-to-br from-white via-gray-50 to-white rounded-2xl shadow-md border border-gray-100 p-8 mb-6">
         <div class="flex items-center mb-6">
@@ -95,7 +162,7 @@
             <div class="space-y-2">
                 <label for="search" class="block text-sm font-semibold text-gray-700">
                     <i class="fas fa-search text-primary mr-1.5"></i>
-                    Cari Nama / NISN
+                    Cari Nama / NIM
                 </label>
                 <div class="relative group">
                     <input type="text" name="search" id="search" value="{{ request('search') }}" 
@@ -103,8 +170,12 @@
                                focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none
                                transition-all duration-200 placeholder-gray-400
                                hover:border-gray-300 hover:shadow-sm" 
-                        placeholder="Ketik nama atau NISN..."
-                        oninput="debounceSubmit()">
+                        placeholder="Ketik nama atau NIM..."
+                        autocomplete="off"
+                        oninput="handleSearchInput(this)"
+                        onkeydown="handleSearchKeydown(event)"
+                        onfocus="showSearchSuggestions()"
+                        onblur="hideSearchSuggestions()">
                     <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <svg class="h-5 w-5 text-gray-400 group-focus-within:text-primary transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -117,6 +188,12 @@
                             </span>
                         </div>
                     @endif
+                    <!-- Search Suggestions Dropdown -->
+                    <div id="searchSuggestions" class="suggestions-dropdown absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 hidden z-20 max-h-60 overflow-y-auto">
+                        <div class="p-2 text-sm text-gray-500 text-center">
+                            Mulai mengetik untuk mencari...
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -150,67 +227,83 @@
 
             <!-- Province Filter -->
             <div class="space-y-2">
-                <label for="province_code" class="block text-sm font-semibold text-gray-700">
+                <label for="province_search" class="block text-sm font-semibold text-gray-700">
                     <i class="fas fa-map-marker-alt text-primary mr-1.5"></i>
                     Provinsi
                 </label>
                 <div class="relative group">
-                    <select name="province_code" id="province_code" onchange="document.getElementById('city_code').value=''; this.form.submit()"
+                    <input type="hidden" name="province_code" id="province_code" value="{{ request('province_code') }}">
+                    <input type="text" id="province_search" 
+                        value="{{ request('province_code') ? $provinces->where('province_code', request('province_code'))->first()?->province : '' }}"
                         class="w-full px-4 py-3.5 pl-12 bg-white border-2 border-gray-200 rounded-xl text-sm
                                focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none
-                               transition-all duration-200 cursor-pointer appearance-none
-                               hover:border-gray-300 hover:shadow-sm">
-                        <option value="">Semua Provinsi</option>
-                        @foreach($provinces as $province)
-                            <option value="{{ $province->province_code }}" {{ request('province_code') == $province->province_code ? 'selected' : '' }}>
-                                {{ $province->province }}
-                            </option>
-                        @endforeach
-                    </select>
+                               transition-all duration-200 placeholder-gray-400
+                               hover:border-gray-300 hover:shadow-sm"
+                        placeholder="Ketik nama provinsi..."
+                        autocomplete="off"
+                        oninput="handleProvinceSearch(this)"
+                        onkeydown="handleProvinceKeydown(event)"
+                        onfocus="showProvinceSuggestions()"
+                        onblur="hideProvinceSuggestions()">
                     <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <svg class="h-5 w-5 text-gray-400 group-focus-within:text-primary transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                     </div>
-                    <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
-                        <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
+                    @if(request('province_code'))
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-primary/10 text-primary">
+                                Aktif
+                            </span>
+                        </div>
+                    @endif
+                    <!-- Province Suggestions Dropdown -->
+                    <div id="provinceSuggestions" class="suggestions-dropdown absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 hidden z-20 max-h-60 overflow-y-auto">
+                        <div class="p-2 text-sm text-gray-500 text-center">
+                            Mulai mengetik untuk mencari provinsi...
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- City Filter -->
             <div class="space-y-2">
-                <label for="city_code" class="block text-sm font-semibold text-gray-700">
+                <label for="city_search" class="block text-sm font-semibold text-gray-700">
                     <i class="fas fa-building text-primary mr-1.5"></i>
                     Kabupaten/Kota
                 </label>
                 <div class="relative group">
-                    <select name="city_code" id="city_code" onchange="this.form.submit()"
+                    <input type="hidden" name="city_code" id="city_code" value="{{ request('city_code') }}">
+                    <input type="text" id="city_search" 
+                        value="{{ request('city_code') && isset($cities) && count($cities) > 0 ? $cities->where('city_code', request('city_code'))->first()?->city : '' }}"
                         class="w-full px-4 py-3.5 pl-12 bg-white border-2 border-gray-200 rounded-xl text-sm
                                focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none
-                               transition-all duration-200 cursor-pointer appearance-none
-                               hover:border-gray-300 hover:shadow-sm disabled:bg-gray-50 disabled:text-gray-400"
-                        {{ !request('province_code') ? 'disabled' : '' }}>
-                        <option value="">Semua Kota</option>
-                        @if(isset($cities) && count($cities) > 0)
-                            @foreach($cities as $city)
-                                <option value="{{ $city->city_code }}" {{ request('city_code') == $city->city_code ? 'selected' : '' }}>
-                                    {{ $city->city }}
-                                </option>
-                            @endforeach
-                        @endif
-                    </select>
+                               transition-all duration-200 placeholder-gray-400
+                               hover:border-gray-300 hover:shadow-sm {{ !request('province_code') ? 'disabled:bg-gray-50 disabled:text-gray-400' : '' }}"
+                        placeholder="{{ !request('province_code') ? 'Pilih provinsi dulu...' : 'Ketik nama kota/kabupaten...' }}"
+                        autocomplete="off"
+                        {{ !request('province_code') ? 'disabled' : '' }}
+                        oninput="handleCitySearch(this)"
+                        onkeydown="handleCityKeydown(event)"
+                        onfocus="showCitySuggestions()"
+                        onblur="hideCitySuggestions()">
                     <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <svg class="h-5 w-5 text-gray-400 group-focus-within:text-primary transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                         </svg>
                     </div>
-                    <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
-                        <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
+                    @if(request('city_code'))
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-primary/10 text-primary">
+                                Aktif
+                            </span>
+                        </div>
+                    @endif
+                    <!-- City Suggestions Dropdown -->
+                    <div id="citySuggestions" class="suggestions-dropdown absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 hidden z-20 max-h-60 overflow-y-auto">
+                        <div class="p-2 text-sm text-gray-500 text-center">
+                            Pilih provinsi dulu...
+                        </div>
                     </div>
                 </div>
             </div>
@@ -260,6 +353,17 @@
 
     @push('scripts')
     <script>
+        // Data for filters
+        const provinces = @json($provinces->map(function($p) { return ['code' => $p->province_code, 'name' => $p->province]; }));
+        const allCities = @json($allCities->map(function($c) { return ['code' => $c->city_code, 'name' => $c->city, 'province_code' => $c->province_code]; }));
+        let searchData = [];
+        let currentFocus = -1;
+
+        // Search variables
+        let searchTimeout = null;
+        let provinceTimeout = null;
+        let cityTimeout = null;
+
         document.addEventListener('DOMContentLoaded', function() {
             // Initialize Flatpickr
             flatpickr("#date", {
@@ -272,28 +376,381 @@
                     document.getElementById('filterForm').submit();
                 }
             });
+
+            // Load search suggestions
+            loadSearchSuggestions();
         });
 
-        // Debounce function for search input
-        let timeout = null;
-        function debounceSubmit() {
-            clearTimeout(timeout);
-            timeout = setTimeout(function() {
-                document.getElementById('filterForm').submit();
-            }, 800); // 800ms delay
+        // Load search suggestions from server
+        function loadSearchSuggestions() {
+            fetch('{{ route("pemetaan.form.tabel") }}?get_suggestions=1')
+                .then(response => response.json())
+                .then(data => {
+                    searchData = data.suggestions || [];
+                })
+                .catch(error => {
+                    console.error('Error loading suggestions:', error);
+                });
         }
+
+        // Search Input Functions
+        function handleSearchInput(input) {
+            clearTimeout(searchTimeout);
+            const query = input.value.toLowerCase().trim();
+            
+            if (query.length < 1) {
+                hideSearchSuggestions();
+                return;
+            }
+
+            searchTimeout = setTimeout(() => {
+                showSearchSuggestions(query);
+            }, 300);
+        }
+
+        function showSearchSuggestions(query = '') {
+            const dropdown = document.getElementById('searchSuggestions');
+            
+            if (!query) {
+                dropdown.innerHTML = '<div class="p-2 text-sm text-gray-500 text-center">Mulai mengetik untuk mencari...</div>';
+                dropdown.classList.remove('hidden');
+                return;
+            }
+
+            // Filter suggestions based on query
+            const filtered = searchData.filter(item => 
+                item.nama_siswa.toLowerCase().includes(query) ||
+                item.nim.toLowerCase().includes(query)
+            ).slice(0, 10);
+
+            if (filtered.length === 0) {
+                dropdown.innerHTML = '<div class="p-2 text-sm text-gray-500 text-center">Tidak ada hasil ditemukan</div>';
+            } else {
+                dropdown.innerHTML = filtered.map((item, index) => 
+                    `<div class="suggestion-item p-2 cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-b-0" 
+                          onclick="selectSearchSuggestion('${item.nama_siswa}', '${item.nim}')" 
+                          data-index="${index}">
+                        <div class="font-medium text-sm">${highlightMatch(item.nama_siswa, query)}</div>
+                        <div class="text-xs text-gray-500">NIM: ${highlightMatch(item.nim, query)}</div>
+                    </div>`
+                ).join('');
+            }
+            
+            dropdown.classList.remove('hidden');
+            currentFocus = -1;
+        }
+
+        function selectSearchSuggestion(name, nim) {
+            const input = document.getElementById('search');
+            input.value = name;
+            hideSearchSuggestions();
+            document.getElementById('filterForm').submit();
+        }
+
+        function hideSearchSuggestions() {
+            setTimeout(() => {
+                document.getElementById('searchSuggestions').classList.add('hidden');
+            }, 200);
+        }
+
+        function handleSearchKeydown(event) {
+            const dropdown = document.getElementById('searchSuggestions');
+            const items = dropdown.querySelectorAll('[data-index]');
+            
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                currentFocus = currentFocus < items.length - 1 ? currentFocus + 1 : 0;
+                setActive(items);
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                currentFocus = currentFocus > 0 ? currentFocus - 1 : items.length - 1;
+                setActive(items);
+            } else if (event.key === 'Enter') {
+                event.preventDefault();
+                if (currentFocus > -1 && items[currentFocus]) {
+                    items[currentFocus].click();
+                } else {
+                    document.getElementById('filterForm').submit();
+                }
+            } else if (event.key === 'Escape') {
+                hideSearchSuggestions();
+            }
+        }
+
+        // Province Input Functions
+        function handleProvinceSearch(input) {
+            clearTimeout(provinceTimeout);
+            const query = input.value.toLowerCase().trim();
+            
+            if (query.length < 1) {
+                hideProvinceSuggestions();
+                // Clear province selection if input is empty
+                document.getElementById('province_code').value = '';
+                // Clear and disable city
+                clearCitySelection();
+                return;
+            }
+
+            provinceTimeout = setTimeout(() => {
+                showProvinceSuggestions(query);
+            }, 300);
+        }
+
+        function showProvinceSuggestions(query = '') {
+            const dropdown = document.getElementById('provinceSuggestions');
+            
+            if (!query) {
+                dropdown.innerHTML = '<div class="p-2 text-sm text-gray-500 text-center">Mulai mengetik untuk mencari provinsi...</div>';
+                dropdown.classList.remove('hidden');
+                return;
+            }
+
+            // Filter provinces based on query
+            const filtered = provinces.filter(province => 
+                province.name.toLowerCase().includes(query)
+            ).slice(0, 10);
+
+            if (filtered.length === 0) {
+                dropdown.innerHTML = '<div class="p-2 text-sm text-gray-500 text-center">Tidak ada provinsi ditemukan</div>';
+            } else {
+                dropdown.innerHTML = filtered.map((province, index) => 
+                    `<div class="suggestion-item p-2 cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-b-0" 
+                          onclick="selectProvince('${province.code}', '${province.name}')" 
+                          data-index="${index}">
+                        <div class="font-medium text-sm">${highlightMatch(province.name, query)}</div>
+                    </div>`
+                ).join('');
+            }
+            
+            dropdown.classList.remove('hidden');
+            currentFocus = -1;
+        }
+
+        function selectProvince(code, name) {
+            document.getElementById('province_code').value = code;
+            document.getElementById('province_search').value = name;
+            hideProvinceSuggestions();
+            
+            // Clear city selection and enable city input
+            clearCitySelection();
+            enableCityInput();
+            
+            // Submit form to update cities
+            document.getElementById('filterForm').submit();
+        }
+
+        function hideProvinceSuggestions() {
+            setTimeout(() => {
+                document.getElementById('provinceSuggestions').classList.add('hidden');
+            }, 200);
+        }
+
+        function handleProvinceKeydown(event) {
+            const dropdown = document.getElementById('provinceSuggestions');
+            const items = dropdown.querySelectorAll('[data-index]');
+            
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                currentFocus = currentFocus < items.length - 1 ? currentFocus + 1 : 0;
+                setActive(items);
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                currentFocus = currentFocus > 0 ? currentFocus - 1 : items.length - 1;
+                setActive(items);
+            } else if (event.key === 'Enter') {
+                event.preventDefault();
+                if (currentFocus > -1 && items[currentFocus]) {
+                    items[currentFocus].click();
+                }
+            } else if (event.key === 'Escape') {
+                hideProvinceSuggestions();
+            }
+        }
+
+        // City Input Functions
+        function handleCitySearch(input) {
+            clearTimeout(cityTimeout);
+            const query = input.value.toLowerCase().trim();
+            const selectedProvinceCode = document.getElementById('province_code').value;
+            
+            if (!selectedProvinceCode) {
+                hideCitySuggestions();
+                return;
+            }
+            
+            if (query.length < 1) {
+                hideCitySuggestions();
+                document.getElementById('city_code').value = '';
+                return;
+            }
+
+            cityTimeout = setTimeout(() => {
+                showCitySuggestions(query, selectedProvinceCode);
+            }, 300);
+        }
+
+        function showCitySuggestions(query = '', provinceCode = '') {
+            const dropdown = document.getElementById('citySuggestions');
+            
+            if (!provinceCode) {
+                dropdown.innerHTML = '<div class="p-2 text-sm text-gray-500 text-center">Pilih provinsi dulu...</div>';
+                dropdown.classList.remove('hidden');
+                return;
+            }
+            
+            if (!query) {
+                dropdown.innerHTML = '<div class="p-2 text-sm text-gray-500 text-center">Mulai mengetik untuk mencari kota...</div>';
+                dropdown.classList.remove('hidden');
+                return;
+            }
+
+            // Filter cities based on query and province
+            const filtered = allCities.filter(city => 
+                city.province_code === provinceCode && 
+                city.name.toLowerCase().includes(query)
+            ).slice(0, 10);
+
+            if (filtered.length === 0) {
+                dropdown.innerHTML = '<div class="p-2 text-sm text-gray-500 text-center">Tidak ada kota ditemukan</div>';
+            } else {
+                dropdown.innerHTML = filtered.map((city, index) => 
+                    `<div class="suggestion-item p-2 cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-b-0" 
+                          onclick="selectCity('${city.code}', '${city.name}')" 
+                          data-index="${index}">
+                        <div class="font-medium text-sm">${highlightMatch(city.name, query)}</div>
+                    </div>`
+                ).join('');
+            }
+            
+            dropdown.classList.remove('hidden');
+            currentFocus = -1;
+        }
+
+        function selectCity(code, name) {
+            document.getElementById('city_code').value = code;
+            document.getElementById('city_search').value = name;
+            hideCitySuggestions();
+            document.getElementById('filterForm').submit();
+        }
+
+        function hideCitySuggestions() {
+            setTimeout(() => {
+                document.getElementById('citySuggestions').classList.add('hidden');
+            }, 200);
+        }
+
+        function handleCityKeydown(event) {
+            const dropdown = document.getElementById('citySuggestions');
+            const items = dropdown.querySelectorAll('[data-index]');
+            
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                currentFocus = currentFocus < items.length - 1 ? currentFocus + 1 : 0;
+                setActive(items);
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                currentFocus = currentFocus > 0 ? currentFocus - 1 : items.length - 1;
+                setActive(items);
+            } else if (event.key === 'Enter') {
+                event.preventDefault();
+                if (currentFocus > -1 && items[currentFocus]) {
+                    items[currentFocus].click();
+                }
+            } else if (event.key === 'Escape') {
+                hideCitySuggestions();
+            }
+        }
+
+        // Helper Functions
+        function clearCitySelection() {
+            document.getElementById('city_code').value = '';
+            document.getElementById('city_search').value = '';
+            document.getElementById('city_search').disabled = true;
+            document.getElementById('city_search').placeholder = 'Pilih provinsi dulu...';
+        }
+
+        function enableCityInput() {
+            const cityInput = document.getElementById('city_search');
+            cityInput.disabled = false;
+            cityInput.placeholder = 'Ketik nama kota/kabupaten...';
+        }
+
+        function setActive(items) {
+            items.forEach((item, index) => {
+                if (index === currentFocus) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+        }
+
+        function highlightMatch(text, query) {
+            if (!query) return text;
+            const regex = new RegExp(`(${query})`, 'gi');
+            return text.replace(regex, '<mark class="bg-yellow-200 px-0.5">$1</mark>');
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(event) {
+            const searchContainer = document.getElementById('search').closest('.relative');
+            const provinceContainer = document.getElementById('province_search').closest('.relative');
+            const cityContainer = document.getElementById('city_search').closest('.relative');
+            
+            if (!searchContainer.contains(event.target)) {
+                hideSearchSuggestions();
+            }
+            if (!provinceContainer.contains(event.target)) {
+                hideProvinceSuggestions();
+            }
+            if (!cityContainer.contains(event.target)) {
+                hideCitySuggestions();
+            }
+        });
+
+        // Initialize city input state on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!document.getElementById('province_code').value) {
+                clearCitySelection();
+            } else {
+                enableCityInput();
+            }
+        });
     </script>
     @endpush
 
     <!-- Table Card -->
     <div class="bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-200">
         <div class="p-6">
+            <!-- Sort Control -->
+            <div class="mb-4 flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <label class="text-sm font-medium text-gray-700">Urutkan berdasarkan:</label>
+                    <div class="flex items-center gap-2">
+                        <select id="sortColumn" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                            <option value="nim" {{ request('sort') == 'nim' ? 'selected' : '' }}>NIM</option>
+                            <option value="nama_siswa" {{ request('sort') == 'nama_siswa' ? 'selected' : '' }}>Nama Siswa</option>
+                            <option value="tahun_lulus" {{ request('sort') == 'tahun_lulus' ? 'selected' : '' }}>Tahun Lulus</option>
+                            <option value="asal_sekolah" {{ request('sort') == 'asal_sekolah' ? 'selected' : '' }}>Asal Sekolah</option>
+                            <option value="tanggal_daftar" {{ request('sort') == 'tanggal_daftar' ? 'selected' : '' }}>Tanggal Daftar</option>
+                            <option value="tahu_stih" {{ request('sort') == 'tahu_stih' ? 'selected' : '' }}>Tahu STIH Darimana</option>
+                            <option value="jenis_beasiswa" {{ request('sort') == 'jenis_beasiswa' ? 'selected' : '' }}>Jenis Beasiswa</option>
+                        </select>
+                        <button id="sortDirection" onclick="toggleSort()" 
+                                class="px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors flex items-center gap-2">
+                            <i id="sortIcon" class="fas {{ request('direction') == 'desc' ? 'fa-sort-down' : 'fa-sort-up' }}"></i>
+                            <span id="sortText">{{ request('direction') == 'desc' ? 'Z-A' : 'A-Z' }}</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
                             <th>No</th>
-                            <th>NISN</th>
+                            <th>NIM</th>
                             <th>Nama Siswa</th>
                             <th>Tahun Lulus</th>
                             <th>Asal Sekolah</th>
@@ -302,6 +759,7 @@
                             <th>Tanggal Daftar</th>
                             <th>Tahu STIH Darimana</th>
                             <th>Beasiswa</th>
+                            <th>Jenis Beasiswa</th>
                             <th>Aksi</th>
                         </tr>
                     </thead>
@@ -309,7 +767,7 @@
                         @forelse($mahasiswas as $index => $mahasiswa)
                             <tr>
                                 <td>{{ $mahasiswas->firstItem() + $index }}</td>
-                                <td>{{ $mahasiswa->nisn }}</td>
+                                <td>{{ $mahasiswa->nim }}</td>
                                 <td>{{ $mahasiswa->nama_siswa }}</td>
                                 <td>{{ $mahasiswa->tahun_lulus }}</td>
                                 <td>
@@ -343,6 +801,16 @@
                                     </span>
                                 </td>
                                 <td>
+                                    @if($mahasiswa->sumber_beasiswa == 'beasiswa' && $mahasiswa->jenis_beasiswa)
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                            {{ $mahasiswa->jenis_beasiswa == '100%' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800' }}">
+                                            {{ $mahasiswa->jenis_beasiswa }}
+                                        </span>
+                                    @else
+                                        <span class="text-gray-400">-</span>
+                                    @endif
+                                </td>
+                                <td>
                                     <div class="flex items-center gap-2">
                                         <a 
                                             href="{{ route('pemetaan.form.edit', $mahasiswa->id) }}" 
@@ -365,7 +833,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="11" class="text-center py-8 text-gray-500">
+                                <td colspan="12" class="text-center py-8 text-gray-500">
                                     <i class="fas fa-inbox text-4xl mb-2"></i>
                                     <p>Belum ada data yang diinput</p>
                                 </td>
@@ -502,6 +970,47 @@
             if (e.target === this) {
                 closeDeleteModal();
             }
+        });
+
+        // Universal Sort Functions
+        function toggleSort() {
+            const sortColumn = document.getElementById('sortColumn').value;
+            const currentDirection = '{{ request('direction', 'asc') }}';
+            const newDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+            
+            // Update button appearance
+            const sortIcon = document.getElementById('sortIcon');
+            const sortText = document.getElementById('sortText');
+            
+            if (newDirection === 'desc') {
+                sortIcon.className = 'fas fa-sort-down';
+                sortText.textContent = 'Z-A';
+            } else {
+                sortIcon.className = 'fas fa-sort-up';
+                sortText.textContent = 'A-Z';
+            }
+            
+            // Build URL with current filters and new sort
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('sort', sortColumn);
+            currentUrl.searchParams.set('direction', newDirection);
+            
+            // Redirect to sorted page
+            window.location.href = currentUrl.toString();
+        }
+
+        // Handle sort column change
+        document.getElementById('sortColumn').addEventListener('change', function() {
+            const sortColumn = this.value;
+            const currentDirection = '{{ request('direction', 'asc') }}';
+            
+            // Build URL with current filters and new sort column
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('sort', sortColumn);
+            currentUrl.searchParams.set('direction', currentDirection);
+            
+            // Redirect to sorted page
+            window.location.href = currentUrl.toString();
         });
     </script>
 @endsection

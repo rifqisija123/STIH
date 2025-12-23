@@ -34,8 +34,10 @@ class DatabaseSeeder extends Seeder
         $this->call([
             ProvinceSeeder::class,
             CitySeeder::class,
+            DistrictSeeder::class,
             TahuStihSeeder::class,
             HighSchoolSeeder::class,
+            VocationalHighSchoolSeeder::class,
         ]);
     }
 }

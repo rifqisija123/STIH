@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\PemetaanController;
+use App\Http\Controllers\ImportController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
 
@@ -30,8 +31,9 @@ Route::prefix('pemetaan')->name('pemetaan.')->middleware('auth')->group(function
     Route::get('/schools', [PemetaanController::class, 'getSchools'])->name('schools.get');
 
 
-    Route::get('/import', [PemetaanController::class, 'showImport'])->name('import');
-    Route::post('/import', [PemetaanController::class, 'import'])->name('import.process');
+    Route::get('/import', [ImportController::class, 'index'])->name('import');
+    Route::post('/import/process', [ImportController::class, 'process'])->name('import.process');
+    Route::post('/import/preview', [ImportController::class, 'preview'])->name('import.preview');
 });
 
 // API Routes for Pemetaan

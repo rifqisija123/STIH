@@ -11,7 +11,7 @@ class Mahasiswa extends Model
     use HasFactory;
 
     protected $fillable = [
-        'nisn',
+        'nim',
         'nama_siswa',
         'tahun_lulus',
         'asal_sekolah',
@@ -20,6 +20,7 @@ class Mahasiswa extends Model
         'tanggal_daftar',
         'tahu_stih_darimana',
         'sumber_beasiswa',
+        'jenis_beasiswa',
     ];
 
     protected function casts(): array

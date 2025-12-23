@@ -61,6 +61,16 @@
                 <h3 class="font-semibold text-gray-800">Data Pemetaan</h3>
                 <p class="text-sm text-gray-500 mt-1">Lihat seluruh data</p>
             </a>
+            
+            <a href="{{ route('pemetaan.import') }}" class="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition group">
+                <div class="flex items-center mb-3">
+                    <div class="w-10 h-10 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center group-hover:bg-orange-100 transition">
+                        <i class="fas fa-file-import"></i>
+                    </div>
+                </div>
+                <h3 class="font-semibold text-gray-800">Import Data</h3>
+                <p class="text-sm text-gray-500 mt-1">Import Data CSV/JSON</p>
+            </a>
 
             <div class="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition group cursor-pointer">
                 <div class="flex items-center mb-3">
@@ -72,15 +82,6 @@
                 <p class="text-sm text-gray-500 mt-1">Analisis pendaftaran</p>
             </div>
 
-            <div class="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition group cursor-pointer">
-                <div class="flex items-center mb-3">
-                    <div class="w-10 h-10 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center group-hover:bg-orange-100 transition">
-                        <i class="fas fa-file-export"></i>
-                    </div>
-                </div>
-                <h3 class="font-semibold text-gray-800">Laporan</h3>
-                <p class="text-sm text-gray-500 mt-1">Export & rekap data</p>
-            </div>
         </div>
     </div>
 
@@ -104,7 +105,7 @@
                             <p class="font-medium text-gray-800">{{ $item->nama_siswa }}</p>
                             <p class="text-sm text-gray-500">
                                 <i class="fas fa-id-card mr-1"></i>
-                                NISN: {{ $item->nisn }}
+                                NIM: {{ $item->nim }}
                             </p>
                         </div>
                     </div>
@@ -114,7 +115,7 @@
                             {{ $item->sumber_beasiswa == 'beasiswa'
                                 ? 'bg-green-100 text-green-700'
                                 : 'bg-blue-100 text-blue-700' }}">
-                            <i class="fas {{ $item->sumber_beasiswa == 'beasiswa' ? 'fa-star' : 'fa-user' }} mr-1"></i>
+                            <i class="fas {{ $item->sumber_beasiswa == 'beasiswa' ? 'fa-star' : 'fa-close' }} mr-1"></i>
                             {{ ucfirst($item->sumber_beasiswa) }}
                         </span>
 

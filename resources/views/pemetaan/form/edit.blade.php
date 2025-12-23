@@ -9,29 +9,11 @@
     <style>
         .form-input {
             transition: all 0.3s ease;
-            font-size: 0.875rem;
         }
         
         .form-input:focus {
             box-shadow: 0 0 0 3px rgba(178, 32, 44, 0.1);
             border-color: #b2202c;
-        }
-
-        /* Perkecil ukuran teks form */
-        label {
-            font-size: 0.8125rem !important;
-        }
-
-        input, select, textarea {
-            font-size: 0.875rem !important;
-        }
-
-        .text-sm {
-            font-size: 0.8125rem !important;
-        }
-
-        h6 {
-            font-size: 1rem !important;
         }
         
         /* Select2 Custom Styling */
@@ -48,6 +30,57 @@
             padding: 0 0 0 12px;
             color: #374151;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 48px;
+            top: 0;
+        }
+        
+        .select2-container--default.select2-container--focus .select2-selection--single {
+            border-color: #b2202c;
+            box-shadow: 0 0 0 3px rgba(178, 32, 44, 0.1);
+        }
+        
+        .select2-dropdown {
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            z-index: 9999;
+        }
+        
+        .select2-container--default .select2-results__option {
+            padding: 8px 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .select2-container--default .select2-results__option--highlighted[aria-selected] {
+            background-color: #b2202c;
+        }
+        
+        .select2-container--default .select2-search--dropdown .select2-search__field {
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            padding: 0.5rem;
+        }
+        
+        /* Fix dropdown width to prevent text wrapping */
+        .select2-container {
+            width: 100% !important;
+        }
+        
+        .select2-dropdown {
+            min-width: 100%;
+            width: auto !important;
+        }
+        
+        .select2-results__option--load-more {
+            text-align: center !important;
+            padding: 10px !important;
+        }
             overflow: hidden;
             text-overflow: ellipsis;
             font-size: 0.875rem;
@@ -106,16 +139,16 @@
 
 @section('content')
     <!-- Page Heading Card -->
-    <div class="bg-gradient-to-r from-primary via-[#a02835] to-[#821620] rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 p-6 mb-6">
+    <div class="bg-gradient-to-r from-primary via-[#a02835] to-[#821620] rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 p-6 mb-6 mt-20">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <h1 class="text-3xl font-bold text-white mb-1">Edit Data Pemetaan</h1>
                 <p class="text-white text-opacity-90 text-sm">Ubah data siswa dengan lengkap dan benar</p>
             </div>
             <div class="flex items-center gap-3 mt-4 sm:mt-0">
-                <a href="{{ route('pemetaan.form.edit', $mahasiswa->id) }}" class="inline-flex items-center px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 backdrop-blur-sm text-white text-sm font-medium rounded-lg shadow-sm transition duration-200">
-                    <i class="fas fa-arrow-left text-sm text-white mr-2"></i> 
-                    Kembali
+                <a href="{{ route('pemetaan.form.tabel') }}" class="inline-flex items-center px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 backdrop-blur-sm text-white text-sm font-medium rounded-lg shadow-sm transition duration-200">
+                    <i class="fas fa-table text-sm text-white mr-2"></i> 
+                    Lihat Data
                 </a>
             </div>
         </div>
@@ -125,7 +158,7 @@
         @csrf
         @method('PUT')
         
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div class="grid grid-cols-1 gap-6 mb-6">
             
             <!-- Card 1: Data Siswa -->
             <div class="bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-200">
@@ -134,20 +167,20 @@
                     <p class="text-sm text-gray-500 mt-1">Informasi dasar siswa</p>
                 </div>
                 <div class="p-6 space-y-5">
-                    <!-- NISN -->
+                    <!-- NIM -->
                     <div>
-                        <label for="nisn" class="block text-sm font-semibold text-gray-700 mb-2">
-                            NISN <span class="text-red-500">*</span>
+                        <label for="nim" class="block text-sm font-semibold text-gray-700 mb-2">
+                            NIM <span class="text-red-500">*</span>
                         </label>
                         <input 
                             type="text" 
-                            id="nisn" 
-                            name="nisn" 
-                            class="form-input w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-primary @error('nisn') border-red-500 @enderror" 
-                            placeholder="Masukkan NISN"
-                            value="{{ old('nisn', $mahasiswa->nisn) }}"
+                            id="nim" 
+                            name="nim" 
+                            class="form-input w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-primary @error('nim') border-red-500 @enderror" 
+                            placeholder="Masukkan NIM"
+                            value="{{ old('nim', $mahasiswa->nim) }}"
                             required>
-                        @error('nisn')
+                        @error('nim')
                             <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                         @enderror
                     </div>
@@ -330,6 +363,24 @@
                             <option value="non_beasiswa" {{ old('sumber_beasiswa', $mahasiswa->sumber_beasiswa) == 'non_beasiswa' ? 'selected' : '' }}>Non Beasiswa</option>
                         </select>
                         @error('sumber_beasiswa')
+                            <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <!-- Jenis Beasiswa -->
+                    <div id="jenis_beasiswa_container" style="display: {{ old('sumber_beasiswa', $mahasiswa->sumber_beasiswa) == 'beasiswa' ? 'block' : 'none' }};">
+                        <label for="jenis_beasiswa" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Jenis Beasiswa <span class="text-red-500">*</span>
+                        </label>
+                        <select 
+                            id="jenis_beasiswa" 
+                            name="jenis_beasiswa" 
+                            class="form-input w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-primary @error('jenis_beasiswa') border-red-500 @enderror">
+                            <option value="">-- Pilih Jenis Beasiswa --</option>
+                            <option value="50%" {{ old('jenis_beasiswa', $mahasiswa->jenis_beasiswa) == '50%' ? 'selected' : '' }}>Beasiswa 50%</option>
+                            <option value="100%" {{ old('jenis_beasiswa', $mahasiswa->jenis_beasiswa) == '100%' ? 'selected' : '' }}>Beasiswa 100%</option>
+                        </select>
+                        @error('jenis_beasiswa')
                             <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                         @enderror
                     </div>
@@ -618,6 +669,27 @@
                 $('body').css('overflow-x', '');
             });
         });
+
+        // Handle Jenis Beasiswa visibility based on Sumber Beasiswa selection
+        const sumberBeasiswaSelect = document.getElementById('sumber_beasiswa');
+        const jenisBeasiswaContainer = document.getElementById('jenis_beasiswa_container');
+        const jenisBeasiswaSelect = document.getElementById('jenis_beasiswa');
+
+        function toggleJenisBeasiswa() {
+            if (sumberBeasiswaSelect.value === 'beasiswa') {
+                jenisBeasiswaContainer.style.display = 'block';
+                jenisBeasiswaSelect.setAttribute('required', '');
+            } else {
+                jenisBeasiswaContainer.style.display = 'none';
+                jenisBeasiswaSelect.removeAttribute('required');
+                jenisBeasiswaSelect.value = ''; // Clear selection
+            }
+        }
+
+        sumberBeasiswaSelect.addEventListener('change', toggleJenisBeasiswa);
+        
+        // Initialize on page load
+        toggleJenisBeasiswa();
     </script>
 @endpush
 
