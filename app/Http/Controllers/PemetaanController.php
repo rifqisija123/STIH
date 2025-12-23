@@ -130,8 +130,7 @@ class PemetaanController extends Controller
     {
         $rules = [
             'nim' => 'required|string|max:10|unique:mahasiswas,nim',
-            'nama_siswa' => 'required|string|max:255',
-            'tahun_lulus' => 'required|integer|digits:4|min:2000|max:'.(date('Y') + 1),
+            'nama' => 'required|string|max:255',
             'asal_sekolah' => 'required|string',
             'provinsi' => 'required|string',
             'kota' => 'required|string',
@@ -148,12 +147,12 @@ class PemetaanController extends Controller
         $validated = $request->validate($rules);
 
         // Jika sumber beasiswa bukan "beasiswa", set jenis_beasiswa ke null
-        if ($validated['sumber_beasiswa'] !== 'beasiswa') {
+        if (!isset($validated['sumber_beasiswa']) || $validated['sumber_beasiswa'] !== 'beasiswa') {
             $validated['jenis_beasiswa'] = null;
         }
 
-        // Extract NPSN from "Name [NPSN]" format
-        if (preg_match('/\[(\d+)\]$/', $validated['asal_sekolah'], $matches)) {
+        // Extract NPSN from "Name [NPSN]" format if asal_sekolah is provided
+        if (!empty($validated['asal_sekolah']) && preg_match('/\[(\d+)\]$/', $validated['asal_sekolah'], $matches)) {
             $validated['asal_sekolah'] = $matches[1];
         }
 
@@ -169,11 +168,11 @@ class PemetaanController extends Controller
     {
         // Handle suggestions request
         if ($request->has('get_suggestions')) {
-            $suggestions = Mahasiswa::select('nama_siswa', 'nim')
+            $suggestions = Mahasiswa::select('nama', 'nim')
                 ->distinct()
-                ->orderBy('nama_siswa')
+                ->orderBy('nama')
                 ->get();
-            
+
             return response()->json([
                 'suggestions' => $suggestions
             ]);
@@ -183,18 +182,22 @@ class PemetaanController extends Controller
 
         // Sorting
         $allowedSortColumns = [
-            'nim', 'nama_siswa', 'tahun_lulus', 'asal_sekolah', 
-            'tanggal_daftar', 'tahu_stih', 'status_beasiswa', 'jenis_beasiswa'
+            'nim',
+            'nama',
+            'asal_sekolah',
+            'tahu_stih',
+            'status_beasiswa',
+            'jenis_beasiswa'
         ];
-        
+
         $sortColumn = $request->get('sort', 'created_at');
         $sortDirection = $request->get('direction', 'desc');
-        
+
         // Validate sort column and direction
         if (!in_array($sortColumn, $allowedSortColumns)) {
             $sortColumn = 'created_at';
         }
-        
+
         if (!in_array($sortDirection, ['asc', 'desc'])) {
             $sortDirection = 'desc';
         }
@@ -203,8 +206,8 @@ class PemetaanController extends Controller
         if ($sortColumn === 'tahu_stih') {
             // Join with tahu_stihs table for proper sorting
             $query->leftJoin('tahu_stihs', 'mahasiswas.tahu_stih', '=', 'tahu_stihs.id')
-                  ->select('mahasiswas.*')
-                  ->orderBy('tahu_stihs.nama', $sortDirection);
+                ->select('mahasiswas.*')
+                ->orderBy('tahu_stihs.nama', $sortDirection);
         } elseif ($sortColumn === 'status_beasiswa') {
             // Sort by sumber_beasiswa column
             $query->orderBy('sumber_beasiswa', $sortDirection);
@@ -217,7 +220,7 @@ class PemetaanController extends Controller
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('nama_siswa', 'like', "%{$search}%")
+                $q->where('nama', 'like', "%{$search}%")
                     ->orWhere('nim', 'like', "%{$search}%");
             });
         }
@@ -246,12 +249,12 @@ class PemetaanController extends Controller
 
         // Pre-load all schools for all mahasiswas to avoid N+1 queries
         $npsnList = $mahasiswas->pluck('asal_sekolah')->filter()->unique()->toArray();
-        
+
         // Load all schools in one query per type
         $highSchools = HighSchool::whereIn('npsn', $npsnList)->get()->keyBy('npsn');
         $madrasahAliyah = MadrasahAliyah::whereIn('npsn', $npsnList)->get()->keyBy('npsn');
         $vocationalHighSchools = VocationalHighSchool::whereIn('npsn', $npsnList)->get()->keyBy('npsn');
-        
+
         // Combine all schools into one collection for easy lookup
         $allSchools = $highSchools->merge($madrasahAliyah)->merge($vocationalHighSchools);
 
@@ -310,7 +313,7 @@ class PemetaanController extends Controller
 
         if ($school) {
             $selectedSchool = (is_object($school) && isset($school->nama))
-                ? $school->nama.' ['.$school->npsn.']'
+                ? $school->nama . ' [' . $school->npsn . ']'
                 : '';
 
             if (is_object($school)) {
@@ -318,7 +321,7 @@ class PemetaanController extends Controller
                 $schoolCityCode = $school->kode_kabkot ?? $school->city_code ?? null;
             }
         } elseif ($mahasiswa->asal_sekolah) {
-            $selectedSchool = 'Sekolah ['.$mahasiswa->asal_sekolah.']';
+            $selectedSchool = 'Sekolah [' . $mahasiswa->asal_sekolah . ']';
         }
 
         $defaultProvinsi = $mahasiswa->provinsi ?: $schoolProvinceCode;
@@ -350,15 +353,14 @@ class PemetaanController extends Controller
         $mahasiswa = Mahasiswa::findOrFail($id);
 
         $rules = [
-            'nim' => 'required|string|max:10|unique:mahasiswas,nim,'.$id,
-            'nama_siswa' => 'required|string|max:255',
-            'tahun_lulus' => 'required|integer|digits:4|min:2000|max:'.(date('Y') + 1),
-            'asal_sekolah' => 'required|string',
-            'provinsi' => 'required|string',
-            'kota' => 'required|string',
+            'nim' => 'required|string|max:10|unique:mahasiswas,nim,' . $id,
+            'nama' => 'required|string|max:255',
+            'asal_sekolah' => 'nullable|string',
+            'provinsi' => 'nullable|string',
+            'kota' => 'nullable|string',
             'tanggal_daftar' => 'required|date',
-            'tahu_stih_darimana' => 'required|string',
-            'sumber_beasiswa' => 'required|in:beasiswa,non_beasiswa',
+            'tahu_stih_darimana' => 'nullable|string',
+            'sumber_beasiswa' => 'nullable|in:beasiswa,non_beasiswa',
         ];
 
         // Jika sumber beasiswa adalah "beasiswa", maka jenis_beasiswa wajib diisi
@@ -369,12 +371,12 @@ class PemetaanController extends Controller
         $validated = $request->validate($rules);
 
         // Jika sumber beasiswa bukan "beasiswa", set jenis_beasiswa ke null
-        if ($validated['sumber_beasiswa'] !== 'beasiswa') {
+        if (!isset($validated['sumber_beasiswa']) || $validated['sumber_beasiswa'] !== 'beasiswa') {
             $validated['jenis_beasiswa'] = null;
         }
 
-        // Extract NPSN from "Name [NPSN]" format
-        if (preg_match('/\[(\d+)\]$/', $validated['asal_sekolah'], $matches)) {
+        // Extract NPSN from "Name [NPSN]" format if asal_sekolah is provided
+        if (!empty($validated['asal_sekolah']) && preg_match('/\[(\d+)\]$/', $validated['asal_sekolah'], $matches)) {
             $validated['asal_sekolah'] = $matches[1];
         }
 
@@ -429,7 +431,6 @@ class PemetaanController extends Controller
             }
 
             return back()->with('success', $message)->with('import_errors', $errors);
-
         } catch (\Exception $e) {
             return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
@@ -442,21 +443,21 @@ class PemetaanController extends Controller
     {
         $imported = 0;
         $path = $file->getRealPath();
-        
+
         if (($handle = fopen($path, 'r')) !== FALSE) {
             $header = fgetcsv($handle, 1000, ','); // Read header
             $rowNumber = 1;
 
             while (($data = fgetcsv($handle, 1000, ',')) !== FALSE) {
                 $rowNumber++;
-                
+
                 if (count($data) != count($header)) {
                     $errors[] = "Baris {$rowNumber}: Jumlah kolom tidak sesuai";
                     continue;
                 }
 
                 $row = array_combine($header, $data);
-                
+
                 if ($this->validateAndSaveRow($row, $rowNumber, $errors)) {
                     $imported++;
                 }
@@ -482,7 +483,7 @@ class PemetaanController extends Controller
 
         foreach ($data as $index => $row) {
             $rowNumber = $index + 1;
-            
+
             if ($this->validateAndSaveRow($row, $rowNumber, $errors)) {
                 $imported++;
             }
@@ -511,7 +512,7 @@ class PemetaanController extends Controller
             ];
 
             $validated = [];
-            
+
             // Map fields
             foreach ($fieldMapping as $dbField => $possibleKeys) {
                 $value = null;
@@ -521,7 +522,7 @@ class PemetaanController extends Controller
                         break;
                     }
                 }
-                
+
                 if ($value !== null) {
                     $validated[$dbField] = $value;
                 }
@@ -529,7 +530,7 @@ class PemetaanController extends Controller
 
             // Validate required fields
             $required = ['nama', 'nim', 'kode_provinsi', 'kode_kabkot', 'asal_sekolah', 'tahun_masuk', 'tanggal_daftar', 'tahu_stih_darimana', 'sumber_beasiswa'];
-            
+
             foreach ($required as $field) {
                 if (!isset($validated[$field]) || empty($validated[$field])) {
                     $errors[] = "Baris {$rowNumber}: Field '{$field}' harus diisi";
@@ -560,7 +561,6 @@ class PemetaanController extends Controller
             // Create the record
             Mahasiswa::create($validated);
             return true;
-
         } catch (\Exception $e) {
             $errors[] = "Baris {$rowNumber}: " . $e->getMessage();
             return false;

@@ -12,22 +12,48 @@ class Mahasiswa extends Model
 
     protected $fillable = [
         'nim',
-        'nama_siswa',
-        'tahun_lulus',
+        'nama',
+        'email',
+        'nisn',
+        'jenis_kelamin',
+        'nomor_telepon',
+        'tempat_lahir',
+        'tanggal_lahir',
+        'agama',
+        'alamat',
+        'rt',
+        'rw',
+        'dusun',
+        'kelurahan',
+        'kecamatan',
+        'kode_pos',
+        'program_studi',
         'asal_sekolah',
         'provinsi',
         'kota',
-        'tanggal_daftar',
         'tahu_stih_darimana',
         'sumber_beasiswa',
         'jenis_beasiswa',
+        'angkatan',
+        'kewarganegaraan',
+        'jenis_pendaftaran',
+        'jalur_pendaftaran',
+        'tanggal_masuk_kuliah',
+        'tanggal_daftar',
+        'mulai_semester',
+        'code_religion',
+        'district_code',
+        'village_code',
+        'code_stihs',
     ];
 
     protected function casts(): array
     {
         return [
+            'tanggal_lahir' => 'date',
+            'tanggal_masuk_kuliah' => 'date',
             'tanggal_daftar' => 'date',
-            'tahun_lulus' => 'integer',
+            'angkatan' => 'integer',
         ];
     }
 
